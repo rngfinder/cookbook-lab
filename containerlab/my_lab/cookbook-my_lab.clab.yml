@@ -1,0 +1,79 @@
+name: cookbook-lab
+prefix: "" # Empty string to not add a prefix to the containers
+
+mgmt:
+  network: network-cookbook-lab
+  ipv4-subnet: 198.51.100.0/24
+
+topology:
+  kinds:
+    arista_ceos:
+      image: ${CEOS_IMAGE:-ceos:4.36.0F}
+      env:
+        CLAB_MGMT_VRF: MGMT
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux
+    linux:
+      image: ghcr.io/hellt/network-multitool
+
+  nodes:
+    ceos-01:
+      kind: arista_ceos
+      mgmt-ipv4: 198.51.100.11
+    ceos-02:
+      kind: arista_ceos
+      mgmt-ipv4: 198.51.100.12
+    ceos-03:
+      kind: arista_ceos
+      mgmt-ipv4: 198.51.100.13
+    ceos-11:
+      kind: arista_ceos
+      mgmt-ipv4: 198.51.100.21
+    ceos-12:
+      kind: arista_ceos
+      mgmt-ipv4: 198.51.100.22
+    # Spine ixdr3
+    srl-01:
+      kind: nokia_srlinux
+      type: ixrd3
+      mgmt-ipv4: 198.51.100.31
+    # leaf-01 ixdr2
+    srl-02:
+      kind: nokia_srlinux
+      type: ixrd2
+      mgmt-ipv4: 198.51.100.32
+    # leaf-02 ixdr2
+    srl-03:
+      kind: nokia_srlinux
+      type: ixrd2
+      mgmt-ipv4: 198.51.100.33    
+    client1:
+      kind: linux
+      exec:
+        - ip link set address 00:c1:ab:00:00:01 dev eth1
+        - ip addr add 192.168.0.1/24 dev eth1
+        - ip route add 192.168.20.0/24 via 192.168.0.254
+    client2:
+      kind: linux
+      exec:
+        - ip link set address 00:c1:ab:00:00:02 dev eth1
+        - ip addr add 192.168.20.1/24 dev eth1
+        - ip route add 192.168.0.0/24 via 192.168.20.254
+
+  links:
+    # Juniper cRPD connections
+    - endpoints: ["ceos-11:eth1", "srl-01:e1-1"]
+    - endpoints: ["ceos-11:eth2", "ceos-01:eth1"]
+    - endpoints: ["ceos-11:eth3", "ceos-12:eth3"]
+    - endpoints: ["ceos-12:eth2", "ceos-01:eth2"]
+    - endpoints: ["ceos-12:eth1", "srl-01:e1-2"]
+    # Arista connections
+    - endpoints: ["ceos-01:eth3", "ceos-02:eth1"]
+    - endpoints: ["ceos-01:eth4", "ceos-03:eth1"]
+    # SR Linux connections
+    - endpoints: ["srl-01:e1-3", "srl-02:e1-1"]
+    - endpoints: ["srl-01:e1-4", "srl-03:e1-1"]
+
+    # server links
+    - endpoints: ["client1:eth1", "srl-02:e1-2"]
+    - endpoints: ["client2:eth1", "ceos-02:eth2"]
